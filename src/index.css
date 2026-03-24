@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@font-face {
+  font-family: 'LGV Big Noodle';
+  src: url('https://raw.githubusercontent.com/KamaBarTbilisi/Kama-Web-assets/3f24ed9739a7aa8c5312c7765687e2bcd066540d/LGV_Big_Noodle-48848651178.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@import url('https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,100..900;1,100..900&display=swap');
+
+@theme {
+  --font-big-noodle: "LGV Big Noodle", sans-serif;
+  --font-albert: "Albert Sans", sans-serif;
+}
