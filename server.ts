@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -36,6 +37,14 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+  app.use(cors());
+  app.options("*", cors());
+
+  // Simple request logger
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} from ${req.headers.origin || "unknown"}`);
+    next();
+  });
 
   // Initialize database tables
   const initDb = async () => {

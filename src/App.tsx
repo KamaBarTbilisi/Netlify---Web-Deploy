@@ -27,9 +27,14 @@ import {
 const MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/13fg0K72AoZziXeQ5WOV8OCC6kF4Si6UtfL5sIipwC7c/export?format=csv&gid=876610475";
 const FAQ_CSV_URL = "https://docs.google.com/spreadsheets/d/13fg0K72AoZziXeQ5WOV8OCC6kF4Si6UtfL5sIipwC7c/export?format=csv&gid=151048700";
 
+// Fallback to the Cloud Run URL if VITE_API_URL is not set on Netlify
+const CLOUD_RUN_URL = "https://ais-dev-jv6m77wpjn2fq4n554gd5m-95396215977.europe-west2.run.app";
+const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname.includes('netlify.app') ? CLOUD_RUN_URL : "");
+console.log("API_URL configured as:", API_URL || "(local)");
+
 const fetchProductsFromSheets = async (url: string): Promise<Product[]> => {
   try {
-    const proxyUrl = `/api/proxy-sheets?url=${encodeURIComponent(getExportUrl(url))}`;
+    const proxyUrl = `${API_URL}/api/proxy-sheets?url=${encodeURIComponent(getExportUrl(url))}`;
     const response = await fetch(proxyUrl);
     if (!response.ok) throw new Error("Failed to fetch via proxy");
     const csvText = await response.text();
@@ -83,7 +88,7 @@ const fetchProductsFromSheets = async (url: string): Promise<Product[]> => {
 
 const fetchFaqsFromSheets = async (url: string): Promise<FAQItem[]> => {
   try {
-    const proxyUrl = `/api/proxy-sheets?url=${encodeURIComponent(getExportUrl(url))}`;
+    const proxyUrl = `${API_URL}/api/proxy-sheets?url=${encodeURIComponent(getExportUrl(url))}`;
     const response = await fetch(proxyUrl);
     if (!response.ok) throw new Error("Failed to fetch via proxy");
     const csvText = await response.text();
@@ -327,7 +332,7 @@ function MenuSection({ lang }: { lang: "en" | "ka" }) {
     const fetchMenu = async () => {
       setLoading(true);
       try {
-        const response = await fetch("/api/products");
+        const response = await fetch(`${API_URL}/api/products`);
         if (response.ok) {
           const data = await response.json();
           if (data.length > 0) {
@@ -494,7 +499,7 @@ function FAQSection({ lang }: { lang: "en" | "ka" }) {
     const fetchFaqs = async () => {
       setLoading(true);
       try {
-        const response = await fetch("/api/faq");
+        const response = await fetch(`${API_URL}/api/faq`);
         if (response.ok) {
           const data = await response.json();
           if (data.length > 0) {
@@ -620,12 +625,16 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
     setIsSyncing(true);
     try {
       // Check health
-      const hRes = await fetch("/api/health");
+      console.log("Fetching health from:", `${API_URL}/api/health`);
+      const hRes = await fetch(`${API_URL}/api/health`);
+      if (!hRes.ok) throw new Error(`Health check failed: ${hRes.statusText}`);
       const hData = await hRes.json();
       setDbStatus({ connected: hData.dbConnected, error: hData.error });
 
-      const pRes = await fetch("/api/products");
-      const fRes = await fetch("/api/faq");
+      console.log("Fetching products from:", `${API_URL}/api/products`);
+      const pRes = await fetch(`${API_URL}/api/products`);
+      console.log("Fetching FAQ from:", `${API_URL}/api/faq`);
+      const fRes = await fetch(`${API_URL}/api/faq`);
       if (pRes.ok) setProducts(await pRes.json());
       if (fRes.ok) setFaqs(await fRes.json());
     } catch (err) {
@@ -666,7 +675,7 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/products", {
+      const res = await fetch(`${API_URL}/api/products`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newProduct),
@@ -690,7 +699,7 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
   const handleAddFaq = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/faq", {
+      const res = await fetch(`${API_URL}/api/faq`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newFaq),
@@ -727,14 +736,14 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
 
       // Save to Neon
       for (const p of productsData) {
-        await fetch("/api/products", {
+        await fetch(`${API_URL}/api/products`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(p),
         });
       }
       for (const f of faqsData) {
-        await fetch("/api/faq", {
+        await fetch(`${API_URL}/api/faq`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(f),
@@ -753,7 +762,7 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
 
   const deleteProduct = async (id: string) => {
     try {
-      await fetch(`/api/products/${id}`, { method: "DELETE" });
+      await fetch(`${API_URL}/api/products/${id}`, { method: "DELETE" });
       setConfirmDelete(null);
       await fetchAdminData();
     } catch (err) {
@@ -763,7 +772,7 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
 
   const deleteFaq = async (id: string) => {
     try {
-      await fetch(`/api/faq/${id}`, { method: "DELETE" });
+      await fetch(`${API_URL}/api/faq/${id}`, { method: "DELETE" });
       setConfirmDelete(null);
       await fetchAdminData();
     } catch (err) {
@@ -822,6 +831,11 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
               CMS DASHBOARD (NEON) v1.0
               {dbStatus && (
                 <div className={`w-3 h-3 rounded-full ${dbStatus.connected ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`} title={dbStatus.connected ? "Database Connected" : `Database Error: ${dbStatus.error}`} />
+              )}
+              {!dbStatus && !isSyncing && (
+                <div className="text-xs text-red-500 font-sans normal-case tracking-normal">
+                  ⚠️ Database not configured. Check VITE_API_URL on Netlify.
+                </div>
               )}
             </h1>
           </div>
