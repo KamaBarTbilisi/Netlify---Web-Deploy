@@ -8,6 +8,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+console.log("[BOOT] server.ts is being executed...");
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -37,17 +39,14 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Use cors package - it's more reliable
+  // Use the official cors package - it's the most robust way
   app.use(cors({
-    origin: (origin, callback) => {
-      console.log(`[CORS] Request from origin: ${origin || "none"}`);
-      callback(null, true); // Allow all origins
-    },
-    credentials: true,
+    origin: "*", // Allow all origins for now to fix the Netlify issue
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"]
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
   }));
-  app.options("*", cors());
 
   app.use(express.json());
 
@@ -90,6 +89,7 @@ async function startServer() {
 
   // API routes
   app.get("/api/test", (req, res) => {
+    console.log(`[API] Test route hit from ${req.headers.origin || "unknown"}`);
     res.json({ message: "CORS is working" });
   });
 
@@ -217,7 +217,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`[SERVER] Server running on http://0.0.0.0:${PORT}`);
   });
 }
 
