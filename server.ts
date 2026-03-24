@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -32,32 +33,21 @@ function getPool() {
 }
 
 async function startServer() {
+  console.log("Starting server process...");
   const app = express();
   const PORT = 3000;
 
-  // Aggressive CORS handling - MUST BE FIRST
-  app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    console.log(`[CORS] Request from: ${origin || "none"} | Method: ${req.method} | URL: ${req.url}`);
-    
-    if (origin) {
-      res.header("Access-Control-Allow-Origin", origin);
-      console.log(`[CORS] Setting Access-Control-Allow-Origin to: ${origin}`);
-    } else {
-      res.header("Access-Control-Allow-Origin", "*");
-      console.log(`[CORS] Setting Access-Control-Allow-Origin to: *`);
-    }
-    
-    res.header("Access-Control-Allow-Credentials", "true");
-    res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, Content-Length, X-Requested-With");
-    
-    if (req.method === "OPTIONS") {
-      console.log(`[CORS] Handling OPTIONS request, sending 200`);
-      return res.sendStatus(200);
-    }
-    next();
-  });
+  // Use cors package - it's more reliable
+  app.use(cors({
+    origin: (origin, callback) => {
+      console.log(`[CORS] Request from origin: ${origin || "none"}`);
+      callback(null, true); // Allow all origins
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"]
+  }));
+  app.options("*", cors());
 
   app.use(express.json());
 
