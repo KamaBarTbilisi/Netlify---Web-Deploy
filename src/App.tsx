@@ -645,6 +645,7 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
       if (fRes.ok) setFaqs(await fRes.json());
     } catch (err) {
       console.error("Error fetching admin data:", err);
+      setDbStatus({ connected: false, error: err instanceof Error ? err.message : "Failed to connect to API" });
     } finally {
       setIsSyncing(false);
     }
@@ -840,7 +841,12 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
               )}
               {!dbStatus && !isSyncing && (
                 <div className="text-xs text-red-500 font-sans normal-case tracking-normal">
-                  ⚠️ Database not configured. Check VITE_API_URL on Netlify.
+                  ⚠️ Database not configured. Check VITE_API_URL on Netlify and ensure you have redeployed.
+                </div>
+              )}
+              {dbStatus && !dbStatus.connected && (
+                <div className="text-xs text-red-500 font-sans normal-case tracking-normal">
+                  ⚠️ Connection Error: {dbStatus.error}. Check CORS settings and redeploy.
                 </div>
               )}
             </h1>

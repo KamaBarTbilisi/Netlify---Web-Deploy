@@ -38,17 +38,22 @@ async function startServer() {
   // Aggressive CORS handling - MUST BE FIRST
   app.use((req, res, next) => {
     const origin = req.headers.origin;
-    console.log(`CORS check for origin: ${origin || "none"} on ${req.method} ${req.url}`);
+    console.log(`[CORS] Request from: ${origin || "none"} | Method: ${req.method} | URL: ${req.url}`);
+    
     if (origin) {
       res.header("Access-Control-Allow-Origin", origin);
+      console.log(`[CORS] Setting Access-Control-Allow-Origin to: ${origin}`);
     } else {
       res.header("Access-Control-Allow-Origin", "*");
+      console.log(`[CORS] Setting Access-Control-Allow-Origin to: *`);
     }
+    
     res.header("Access-Control-Allow-Credentials", "true");
     res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, Content-Length, X-Requested-With");
     
     if (req.method === "OPTIONS") {
+      console.log(`[CORS] Handling OPTIONS request, sending 200`);
       return res.sendStatus(200);
     }
     next();
