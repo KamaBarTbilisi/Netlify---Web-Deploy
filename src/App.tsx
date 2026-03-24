@@ -10,55 +10,15 @@ import React, { Suspense, useEffect, useRef, useState, useCallback, useMemo } fr
 import * as THREE from "three";
 import Papa from "papaparse";
 import { BrowserRouter, Routes, Route, useNavigate, Link } from "react-router-dom";
-import { supabase } from "./supabase";
 import { 
   ChevronLeft, 
   ChevronRight, 
-  Plus, 
-  Trash2, 
-  Edit2, 
-  Save, 
   X, 
   LogOut, 
   Settings,
   ArrowLeft,
-  LogIn,
-  Copy
+  LogIn
 } from "lucide-react";
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface SupabaseErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId: string | undefined;
-    email: string | null | undefined;
-  }
-}
-
-async function handleSupabaseError(error: any, operationType: OperationType, path: string | null) {
-  const { data: { user } } = await supabase.auth.getUser();
-  const errInfo: SupabaseErrorInfo = {
-    error: error?.message || String(error),
-    authInfo: {
-      userId: user?.id,
-      email: user?.email,
-    },
-    operationType,
-    path
-  };
-  console.error('Supabase Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
 
 const MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQWkJMSOHk9DU0GtY_0XbHqG9eaYWqyqg5CDhiaaptCwO0clQ8zwkfFLFDnTaDKhhGVN9wBP68bSUUW/pub?output=csv";
 const FAQ_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQWkJMSOHk9DU0GtY_0XbHqG9eaYWqyqg5CDhiaaptCwO0clQ8zwkfFLFDnTaDKhhGVN9wBP68bSUUW/pub?output=csv&sheet=FAQ";
@@ -305,43 +265,17 @@ function MenuSection({ lang }: { lang: "en" | "ka" }) {
     const fetchMenu = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .order('order', { ascending: true });
-
-        if (error) throw error;
-        
-        if (!data || data.length === 0) {
-          // Only fallback to sheets if we haven't migrated yet (for initial setup)
-          // But once we have data in Supabase, this should be the source of truth.
-          const sheetData = await fetchProductsFromSheets(MENU_CSV_URL);
-          setMenuData(sheetData);
-        } else {
-          setMenuData(data);
-        }
-      } catch (err) {
-        console.error("Error fetching menu from Supabase:", err);
-        const sheetData = await fetchProductsFromSheets(MENU_CSV_URL);
+        const url = localStorage.getItem("sheet_url") || MENU_CSV_URL;
+        const sheetData = await fetchProductsFromSheets(url);
         setMenuData(sheetData);
+      } catch (err) {
+        console.error("Error fetching menu:", err);
       } finally {
         setLoading(false);
       }
     };
 
     fetchMenu();
-
-    // Real-time subscription
-    const channel = supabase
-      .channel('products-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-        fetchMenu();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   const categories = useMemo(() => {
@@ -483,64 +417,33 @@ function CategoryCarousel({ category, products, lang }: { category: string; prod
 function FAQSection({ lang }: { lang: "en" | "ka" }) {
   const [faqData, setFaqData] = useState<FAQItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchFaqs = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('faqs')
-          .select('*')
-          .order('order', { ascending: true });
-
-        if (error) throw error;
-
-        if (!data || data.length === 0) {
-          // Fallback to sheets for initial setup
-          const sheetData = await fetchFaqsFromSheets(FAQ_CSV_URL);
-          setFaqData(sheetData);
-        } else {
-          setFaqData(data || []);
+        let url = localStorage.getItem("sheet_url") || MENU_CSV_URL;
+        if (url.includes("docs.google.com/spreadsheets") && !url.includes("sheet=")) {
+          url = url + "&sheet=FAQ";
+        } else if (url === MENU_CSV_URL) {
+          url = FAQ_CSV_URL;
         }
-      } catch (err) {
-        console.error("Error fetching FAQs from Supabase:", err);
-        const sheetData = await fetchFaqsFromSheets(FAQ_CSV_URL);
+        
+        const sheetData = await fetchFaqsFromSheets(url);
         setFaqData(sheetData);
+      } catch (err) {
+        console.error("Error fetching FAQs:", err);
       } finally {
         setLoading(false);
       }
     };
 
     fetchFaqs();
-
-    // Real-time subscription
-    const channel = supabase
-      .channel('faqs-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'faqs' }, () => {
-        fetchFaqs();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   if (loading) return null;
   
-  if (error) {
-    return (
-      <section className="w-full py-20 px-4 bg-black border-t border-white/5 text-center">
-        <div className="max-w-[1000px] mx-auto">
-          <p className="text-red-500 font-albert mb-4 uppercase tracking-widest">FAQ Error</p>
-          <p className="text-white mb-6">{error}</p>
-        </div>
-      </section>
-    );
-  }
-
   if (faqData.length === 0) return null;
 
   return (
@@ -612,11 +515,29 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [activeTab, setActiveTab] = useState<"products" | "faqs">("products");
-  const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
-  const [editingFaq, setEditingFaq] = useState<Partial<FAQItem> | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [sheetUrl, setSheetUrl] = useState(localStorage.getItem("sheet_url") || "");
   const navigate = useNavigate();
+
+  const fetchAdminData = useCallback(async () => {
+    if (!sheetUrl) return;
+    setIsSyncing(true);
+    try {
+      const pData = await fetchProductsFromSheets(sheetUrl);
+      setProducts(pData);
+
+      let faqUrl = sheetUrl;
+      if (sheetUrl.includes("docs.google.com/spreadsheets") && !sheetUrl.includes("sheet=")) {
+        faqUrl = sheetUrl + "&sheet=FAQ";
+      }
+      const fData = await fetchFaqsFromSheets(faqUrl);
+      setFaqs(fData);
+    } catch (err) {
+      console.error("Error fetching admin data:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [sheetUrl]);
 
   useEffect(() => {
     const savedSession = localStorage.getItem("admin_logged_in");
@@ -625,27 +546,9 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
     }
   }, []);
 
-  const fetchAdminData = useCallback(async () => {
-    const { data: pData, error: pErr } = await supabase.from('products').select('*').order('order', { ascending: true });
-    if (pErr) console.error("Error fetching products:", pErr);
-    else setProducts(pData || []);
-
-    const { data: fData, error: fErr } = await supabase.from('faqs').select('*').order('order', { ascending: true });
-    if (fErr) console.error("Error fetching faqs:", fErr);
-    else setFaqs(fData || []);
-  }, []);
-
   useEffect(() => {
     if (isLoggedIn) {
       fetchAdminData();
-
-      const pChannel = supabase.channel('admin-products').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAdminData).subscribe();
-      const fChannel = supabase.channel('admin-faqs').on('postgres_changes', { event: '*', schema: 'public', table: 'faqs' }, fetchAdminData).subscribe();
-
-      return () => {
-        supabase.removeChannel(pChannel);
-        supabase.removeChannel(fChannel);
-      };
     }
   }, [isLoggedIn, fetchAdminData]);
 
@@ -669,118 +572,26 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
       alert("Please provide a Google Sheets CSV URL first.");
       return;
     }
-    if (!window.confirm("This will DELETE all existing products and FAQs in the CMS and replace them with data from the provided Excel/Sheets URL. Continue?")) return;
     
     localStorage.setItem("sheet_url", sheetUrl);
     setIsSyncing(true);
     try {
-      // Clear existing products
-      const { error: delProdErr } = await supabase.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (delProdErr) {
-        console.warn("Could not clear products table, it might not exist yet or RLS is blocking.", delProdErr);
-        if (delProdErr.message.includes("relation")) throw new Error("Database tables not found. Please run the SQL schema first.");
-      }
+      const productsData = await fetchProductsFromSheets(sheetUrl);
+      setProducts(productsData);
 
-      // Clear existing FAQs
-      const { error: delFaqErr } = await supabase.from('faqs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (delFaqErr) {
-        console.warn("Could not clear faqs table, it might not exist yet or RLS is blocking.", delFaqErr);
-      }
-
-      // Sync Products using helper
-      // We assume the URL provided is for the Products sheet
-      const productsToInsert = await fetchProductsFromSheets(sheetUrl);
-      
-      // Remove temporary IDs and ensure correct structure before inserting
-      const cleanProducts = productsToInsert.map(({ id, ...rest }) => ({
-        ...rest,
-        en: { ...rest.en },
-        ka: { ...rest.ka }
-      }));
-      
-      const { error: prodErr } = await supabase.from('products').insert(cleanProducts);
-      if (prodErr) throw prodErr;
-
-      // For FAQs, we try to append &sheet=FAQ if it's a Google Sheets URL
       let faqUrl = sheetUrl;
       if (sheetUrl.includes("docs.google.com/spreadsheets") && !sheetUrl.includes("sheet=")) {
         faqUrl = sheetUrl + "&sheet=FAQ";
       }
-      
-      const faqsToInsert = await fetchFaqsFromSheets(faqUrl);
-      // Remove temporary IDs before inserting
-      const cleanFaqs = faqsToInsert.map(({ id, ...rest }) => ({
-        ...rest,
-        en: { ...rest.en },
-        ka: { ...rest.ka }
-      }));
-      
-      const { error: faqErr } = await supabase.from('faqs').insert(cleanFaqs);
-      if (faqErr) throw faqErr;
+      const faqsData = await fetchFaqsFromSheets(faqUrl);
+      setFaqs(faqsData);
 
-      alert("Migration complete! All products and FAQs are now in the CMS.");
-      setIsSyncing(false);
-      window.location.reload();
+      alert("Data synced successfully from Google Sheets!");
     } catch (error: any) {
       console.error("Sync error:", error);
       alert(`Sync failed: ${error.message || "Unknown error"}`);
+    } finally {
       setIsSyncing(false);
-    }
-  };
-
-  const handleSaveProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingProduct) return;
-
-    try {
-      if (editingProduct.id) {
-        const { id, ...data } = editingProduct;
-        const { error } = await supabase.from('products').update(data).eq('id', id);
-        if (error) await handleSupabaseError(error, OperationType.UPDATE, `products/${id}`);
-      } else {
-        const { error } = await supabase.from('products').insert({
-          ...editingProduct,
-          order: products.length
-        });
-        if (error) await handleSupabaseError(error, OperationType.CREATE, "products");
-      }
-      setEditingProduct(null);
-    } catch (error) {
-      console.error("Save error:", error);
-      alert("Error saving product. Check console.");
-    }
-  };
-
-  const handleDeleteProduct = async (id: string) => {
-    if (window.confirm("Delete this product?")) {
-      try {
-        const { error } = await supabase.from('products').delete().eq('id', id);
-        if (error) await handleSupabaseError(error, OperationType.DELETE, `products/${id}`);
-      } catch (error) {
-        console.error("Delete error:", error);
-      }
-    }
-  };
-
-  const handleSaveFaq = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingFaq) return;
-
-    try {
-      if (editingFaq.id) {
-        const { id, ...data } = editingFaq;
-        const { error } = await supabase.from('faqs').update(data).eq('id', id);
-        if (error) await handleSupabaseError(error, OperationType.UPDATE, `faqs/${id}`);
-      } else {
-        const { error } = await supabase.from('faqs').insert({
-          ...editingFaq,
-          order: faqs.length
-        });
-        if (error) await handleSupabaseError(error, OperationType.CREATE, "faqs");
-      }
-      setEditingFaq(null);
-    } catch (error) {
-      console.error("Save error:", error);
     }
   };
 
@@ -846,7 +657,7 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
                 onClick={syncFromSheets}
                 disabled={isSyncing}
                 className="text-[#D4FF00] hover:text-white transition-colors disabled:opacity-50"
-                title="Sync from Excel"
+                title="Update from Excel"
               >
                 <Settings size={14} className={isSyncing ? "animate-spin" : ""} />
               </button>
@@ -886,46 +697,11 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
 
         {activeTab === "products" ? (
           <div className="space-y-8">
-            <div className="flex justify-end">
-              <button 
-                onClick={() => setEditingProduct({
-                  en: { name: "", description: [], nutrition: "", category: "" },
-                  ka: { name: "", description: [], nutrition: "", category: "" },
-                  image: "",
-                  category_en: "",
-                  category_ka: ""
-                })}
-                className="bg-[#D4FF00] text-black px-6 py-2 rounded-full font-bold text-[10px] tracking-widest uppercase flex items-center gap-2 hover:bg-[#b8dd00] transition-colors"
-              >
-                <Plus size={14} /> ADD PRODUCT
-              </button>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map(p => (
                 <div key={p.id} className="bg-zinc-900 rounded-2xl border border-white/10 overflow-hidden group">
                   <div className="aspect-square relative">
                     <img src={p.image} className="w-full h-full object-cover" alt={p.en.name} />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                      <button onClick={() => setEditingProduct(p)} className="p-2 bg-white text-black rounded-full hover:scale-110 transition-transform" title="Edit"><Edit2 size={16} /></button>
-                      <button 
-                        onClick={async () => {
-                          const { id, created_at, ...cloneData } = p;
-                          const { error } = await supabase.from('products').insert({
-                            ...cloneData,
-                            order: products.length,
-                            en: { ...cloneData.en, name: `${cloneData.en.name} (Copy)` },
-                            ka: { ...cloneData.ka, name: `${cloneData.ka.name} (ასლი)` }
-                          });
-                          if (error) await handleSupabaseError(error, OperationType.CREATE, "products/clone");
-                        }} 
-                        className="p-2 bg-[#D4FF00] text-black rounded-full hover:scale-110 transition-transform" 
-                        title="Duplicate"
-                      >
-                        <Copy size={16} />
-                      </button>
-                      <button onClick={() => handleDeleteProduct(p.id)} className="p-2 bg-red-500 text-white rounded-full hover:scale-110 transition-transform" title="Delete"><Trash2 size={16} /></button>
-                    </div>
                   </div>
                   <div className="p-4">
                     <h4 className="text-sm font-bold uppercase tracking-widest mb-1">{p.en.name}</h4>
@@ -937,18 +713,6 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
           </div>
         ) : (
           <div className="space-y-8">
-            <div className="flex justify-end">
-              <button 
-                onClick={() => setEditingFaq({
-                  en: { question: "", answer: "" },
-                  ka: { question: "", answer: "" }
-                })}
-                className="bg-[#D4FF00] text-black px-6 py-2 rounded-full font-bold text-[10px] tracking-widest uppercase flex items-center gap-2 hover:bg-[#b8dd00] transition-colors"
-              >
-                <Plus size={14} /> ADD FAQ
-              </button>
-            </div>
-
             <div className="space-y-4">
               {faqs.map(f => (
                 <div key={f.id} className="bg-zinc-900 p-6 rounded-2xl border border-white/10 flex justify-between items-center">
@@ -956,169 +720,12 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
                     <h4 className="text-sm font-bold uppercase tracking-widest mb-2">{f.en.question}</h4>
                     <p className="text-[10px] text-white/40 uppercase tracking-widest line-clamp-1">{f.en.answer}</p>
                   </div>
-                  <div className="flex gap-4">
-                    <button onClick={() => setEditingFaq(f)} className="text-white/40 hover:text-[#D4FF00] transition-colors"><Edit2 size={18} /></button>
-                    <button onClick={async () => { 
-                      if(window.confirm("Delete?")) {
-                        const { error } = await supabase.from('faqs').delete().eq('id', f.id);
-                        if (error) await handleSupabaseError(error, OperationType.DELETE, `faqs/${f.id}`);
-                      }
-                    }} className="text-white/40 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
-                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Product Modal */}
-        {editingProduct && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-zinc-900 w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 p-8">
-              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-2xl font-big-noodle uppercase tracking-widest">{editingProduct.id ? "EDIT PRODUCT" : "NEW PRODUCT"}</h3>
-                <button onClick={() => setEditingProduct(null)} className="text-white/40 hover:text-white"><X size={24} /></button>
-              </div>
-
-              <form onSubmit={handleSaveProduct} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* English */}
-                  <div className="space-y-4">
-                    <p className="text-[10px] text-[#D4FF00] font-bold uppercase tracking-widest">ENGLISH DETAILS</p>
-                    <input 
-                      placeholder="Product Name"
-                      value={editingProduct.en?.name}
-                      onChange={e => setEditingProduct({...editingProduct, en: {...editingProduct.en!, name: e.target.value}})}
-                      className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00]"
-                      required
-                    />
-                    <input 
-                      placeholder="Category"
-                      value={editingProduct.category_en}
-                      onChange={e => setEditingProduct({...editingProduct, category_en: e.target.value})}
-                      className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00]"
-                      required
-                    />
-                    <textarea 
-                      placeholder="Description (comma separated)"
-                      value={editingProduct.en?.description?.join(", ")}
-                      onChange={e => setEditingProduct({...editingProduct, en: {...editingProduct.en!, description: e.target.value.split(",").map(s => s.trim())}})}
-                      className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00] h-32"
-                    />
-                    <input 
-                      placeholder="Nutrition"
-                      value={editingProduct.en?.nutrition}
-                      onChange={e => setEditingProduct({...editingProduct, en: {...editingProduct.en!, nutrition: e.target.value}})}
-                      className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00]"
-                    />
-                  </div>
-
-                  {/* Georgian */}
-                  <div className="space-y-4">
-                    <p className="text-[10px] text-[#D4FF00] font-bold uppercase tracking-widest">GEORGIAN DETAILS</p>
-                    <input 
-                      placeholder="პროდუქტის სახელი"
-                      value={editingProduct.ka?.name}
-                      onChange={e => setEditingProduct({...editingProduct, ka: {...editingProduct.ka!, name: e.target.value}})}
-                      className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00]"
-                      required
-                    />
-                    <input 
-                      placeholder="კატეგორია"
-                      value={editingProduct.category_ka}
-                      onChange={e => setEditingProduct({...editingProduct, category_ka: e.target.value})}
-                      className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00]"
-                      required
-                    />
-                    <textarea 
-                      placeholder="აღწერა (მძიმით გამოყოფილი)"
-                      value={editingProduct.ka?.description?.join(", ")}
-                      onChange={e => setEditingProduct({...editingProduct, ka: {...editingProduct.ka!, description: e.target.value.split(",").map(s => s.trim())}})}
-                      className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00] h-32"
-                    />
-                    <input 
-                      placeholder="კვებითი ღირებულება"
-                      value={editingProduct.ka?.nutrition}
-                      onChange={e => setEditingProduct({...editingProduct, ka: {...editingProduct.ka!, nutrition: e.target.value}})}
-                      className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00]"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <p className="text-[10px] text-[#D4FF00] font-bold uppercase tracking-widest">MEDIA</p>
-                  <input 
-                    placeholder="Image URL"
-                    value={editingProduct.image}
-                    onChange={e => setEditingProduct({...editingProduct, image: e.target.value})}
-                    className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00]"
-                    required
-                  />
-                </div>
-
-                <div className="flex justify-end gap-4 pt-4">
-                  <button type="button" onClick={() => setEditingProduct(null)} className="px-8 py-3 text-xs font-bold uppercase tracking-widest text-white/40 hover:text-white">CANCEL</button>
-                  <button type="submit" className="bg-[#D4FF00] text-black px-12 py-3 rounded-full font-bold text-xs tracking-widest uppercase hover:bg-[#b8dd00] transition-colors">SAVE PRODUCT</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* FAQ Modal */}
-        {editingFaq && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-zinc-900 w-full max-w-2xl rounded-3xl border border-white/10 p-8">
-              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-2xl font-big-noodle uppercase tracking-widest">{editingFaq.id ? "EDIT FAQ" : "NEW FAQ"}</h3>
-                <button onClick={() => setEditingFaq(null)} className="text-white/40 hover:text-white"><X size={24} /></button>
-              </div>
-
-              <form onSubmit={handleSaveFaq} className="space-y-6">
-                <div className="space-y-4">
-                  <p className="text-[10px] text-[#D4FF00] font-bold uppercase tracking-widest">ENGLISH</p>
-                  <input 
-                    placeholder="Question"
-                    value={editingFaq.en?.question}
-                    onChange={e => setEditingFaq({...editingFaq, en: {...editingFaq.en!, question: e.target.value}})}
-                    className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00]"
-                    required
-                  />
-                  <textarea 
-                    placeholder="Answer"
-                    value={editingFaq.en?.answer}
-                    onChange={e => setEditingFaq({...editingFaq, en: {...editingFaq.en!, answer: e.target.value}})}
-                    className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00] h-24"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <p className="text-[10px] text-[#D4FF00] font-bold uppercase tracking-widest">GEORGIAN</p>
-                  <input 
-                    placeholder="კითხვა"
-                    value={editingFaq.ka?.question}
-                    onChange={e => setEditingFaq({...editingFaq, ka: {...editingFaq.ka!, question: e.target.value}})}
-                    className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00]"
-                    required
-                  />
-                  <textarea 
-                    placeholder="პასუხი"
-                    value={editingFaq.ka?.answer}
-                    onChange={e => setEditingFaq({...editingFaq, ka: {...editingFaq.ka!, answer: e.target.value}})}
-                    className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#D4FF00] h-24"
-                    required
-                  />
-                </div>
-
-                <div className="flex justify-end gap-4 pt-4">
-                  <button type="button" onClick={() => setEditingFaq(null)} className="px-8 py-3 text-xs font-bold uppercase tracking-widest text-white/40 hover:text-white">CANCEL</button>
-                  <button type="submit" className="bg-[#D4FF00] text-black px-12 py-3 rounded-full font-bold text-xs tracking-widest uppercase hover:bg-[#b8dd00] transition-colors">SAVE FAQ</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -1330,20 +937,11 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
   render() {
     if (this.state.hasError) {
-      let message = "Something went wrong.";
-      try {
-        const errInfo = JSON.parse(this.state.error.message);
-        if (errInfo.error.includes("Missing or insufficient permissions") || errInfo.error.includes("row-level security policy") || errInfo.error.includes("permission denied")) {
-          message = "You don't have permission to perform this action. Please make sure you are logged in as an admin.";
-        }
-      } catch (e) {
-        // Not a JSON error
-      }
       return (
         <div className="min-h-screen bg-black text-white flex items-center justify-center p-8 text-center">
           <div className="max-w-md">
             <h1 className="text-4xl font-big-noodle mb-4 uppercase text-[#D4FF00]">ERROR</h1>
-            <p className="text-white/60 mb-8 uppercase tracking-widest text-xs leading-relaxed">{message}</p>
+            <p className="text-white/60 mb-8 uppercase tracking-widest text-xs leading-relaxed">Something went wrong.</p>
             <button 
               onClick={() => window.location.reload()} 
               className="bg-[#D4FF00] text-black px-8 py-3 rounded-full font-bold text-xs tracking-widest uppercase hover:bg-[#b8dd00] transition-colors"
