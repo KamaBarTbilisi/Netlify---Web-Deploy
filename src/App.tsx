@@ -17,11 +17,15 @@ import {
   LogOut, 
   Settings,
   ArrowLeft,
-  LogIn
+  LogIn,
+  Plus,
+  Trash2,
+  Save,
+  Database
 } from "lucide-react";
 
-const MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQWkJMSOHk9DU0GtY_0XbHqG9eaYWqyqg5CDhiaaptCwO0clQ8zwkfFLFDnTaDKhhGVN9wBP68bSUUW/pub?output=csv";
-const FAQ_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQWkJMSOHk9DU0GtY_0XbHqG9eaYWqyqg5CDhiaaptCwO0clQ8zwkfFLFDnTaDKhhGVN9wBP68bSUUW/pub?output=csv&sheet=FAQ";
+const MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/13fg0K72AoZziXeQ5WOV8OCC6kF4Si6UtfL5sIipwC7c/pub?gid=876610475&output=csv";
+const FAQ_CSV_URL = "https://docs.google.com/spreadsheets/d/13fg0K72AoZziXeQ5WOV8OCC6kF4Si6UtfL5sIipwC7c/pub?gid=151048700&output=csv"; // Assuming FAQ is on another sheet or same if not specified
 
 const fetchProductsFromSheets = async (url: string): Promise<Product[]> => {
   try {
@@ -34,23 +38,33 @@ const fetchProductsFromSheets = async (url: string): Promise<Product[]> => {
         complete: (results) => {
           const products: Product[] = (results.data as any[]).map((row: any, idx: number) => {
             const parseDescription = (val: string) => val ? val.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
+            const getVal = (keys: string[]) => {
+              for (const key of keys) {
+                if (row[key] !== undefined) return row[key];
+                // Try case-insensitive
+                const foundKey = Object.keys(row).find(k => k.toLowerCase() === key.toLowerCase());
+                if (foundKey) return row[foundKey];
+              }
+              return "";
+            };
+
             return {
               id: `sheet-${idx}`,
-              image: getRawGithubUrl(row["Image Link"]),
-              category_en: row["Category ENG"] || "",
-              category_ka: row["Category GEO"] || "",
+              image: getRawGithubUrl(getVal(["Image Link", "Image", "Link"])),
+              category_en: getVal(["Category ENG", "Category EN", "Category"]),
+              category_ka: getVal(["Category GEO", "Category KA", "Category GE"]),
               order: idx,
               en: {
-                name: row["Product name ENG"] || row["Product Name ENG"] || "",
-                description: parseDescription(row["Description ENG"]),
-                nutrition: row["Nutriotion ENG"] || row["Nutrition ENG"] || "",
-                category: row["Category ENG"] || ""
+                name: getVal(["Product name ENG", "Product Name ENG", "Name EN", "Name"]),
+                description: parseDescription(getVal(["Description ENG", "Description EN", "Description"])),
+                nutrition: getVal(["Nutriotion ENG", "Nutrition ENG", "Nutrition EN", "Nutrition"]),
+                category: getVal(["Category ENG", "Category EN", "Category"])
               },
               ka: {
-                name: row["Product name GEO"] || row["Product Name GEO"] || "",
-                description: parseDescription(row["Description GEO"]),
-                nutrition: row["Nutriotion GEO"] || row["Nutrition GEO"] || "",
-                category: row["Category GEO"] || ""
+                name: getVal(["Product name GEO", "Product Name GEO", "Name GEO", "Name KA"]),
+                description: parseDescription(getVal(["Description GEO", "Description KA", "Description GE"])),
+                nutrition: getVal(["Nutriotion GEO", "Nutrition GEO", "Nutrition KA", "Nutrition GE"]),
+                category: getVal(["Category GEO", "Category KA", "Category GE"])
               }
             };
           });
@@ -75,12 +89,38 @@ const fetchFaqsFromSheets = async (url: string): Promise<FAQItem[]> => {
         skipEmptyLines: true,
         complete: (results) => {
           const rows = (results.data as any[]).slice(1);
-          const faqs: FAQItem[] = rows.map((row: any, idx: number) => ({
-            id: `sheet-faq-${idx}`,
-            order: idx,
-            en: { question: row[3] || "", answer: row[4] || "" },
-            ka: { question: row[1] || "", answer: row[2] || "" }
-          }));
+          const faqs: FAQItem[] = rows.map((row: any, idx: number) => {
+            // If row is an array (header: false)
+            if (Array.isArray(row)) {
+              return {
+                id: `sheet-faq-${idx}`,
+                order: idx,
+                en: { question: row[3] || "", answer: row[4] || "" },
+                ka: { question: row[1] || "", answer: row[2] || "" }
+              };
+            }
+            // If row is an object (header: true)
+            const getVal = (keys: string[]) => {
+              for (const key of keys) {
+                if (row[key] !== undefined) return row[key];
+                const foundKey = Object.keys(row).find(k => k.toLowerCase() === key.toLowerCase());
+                if (foundKey) return row[foundKey];
+              }
+              return "";
+            };
+            return {
+              id: `sheet-faq-${idx}`,
+              order: idx,
+              en: { 
+                question: getVal(["Question EN", "Question", "Q EN"]), 
+                answer: getVal(["Answer EN", "Answer", "A EN"]) 
+              },
+              ka: { 
+                question: getVal(["Question KA", "Question GEO", "Q KA"]), 
+                answer: getVal(["Answer KA", "Answer GEO", "A KA"]) 
+              }
+            };
+          });
           resolve(faqs);
         },
         error: (err) => reject(err)
@@ -533,7 +573,24 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [activeTab, setActiveTab] = useState<"products" | "faqs">("products");
   const [isSyncing, setIsSyncing] = useState(false);
-  const [sheetUrl, setSheetUrl] = useState(localStorage.getItem("sheet_url") || "");
+  const [sheetUrl, setSheetUrl] = useState(localStorage.getItem("sheet_url") || MENU_CSV_URL);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; type: "product" | "faq" } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  
+  // Form states
+  const [newProduct, setNewProduct] = useState<Partial<Product>>({
+    image: "",
+    category_en: "",
+    category_ka: "",
+    en: { name: "", description: [], nutrition: "", category: "" },
+    ka: { name: "", description: [], nutrition: "", category: "" }
+  });
+  const [newFaq, setNewFaq] = useState<Partial<FAQItem>>({
+    en: { question: "", answer: "" },
+    ka: { question: "", answer: "" }
+  });
+
   const navigate = useNavigate();
 
   const fetchAdminData = useCallback(async () => {
@@ -569,13 +626,58 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
       localStorage.setItem("admin_logged_in", "true");
       setIsLoggedIn(true);
     } else {
-      alert("Incorrect username or password");
+      setStatusMessage({ text: "Incorrect username or password", type: "error" });
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem("admin_logged_in");
     setIsLoggedIn(false);
+  };
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newProduct),
+      });
+      if (res.ok) {
+        setShowAddModal(false);
+        setNewProduct({
+          image: "",
+          category_en: "",
+          category_ka: "",
+          en: { name: "", description: [], nutrition: "", category: "" },
+          ka: { name: "", description: [], nutrition: "", category: "" }
+        });
+        await fetchAdminData();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddFaq = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("/api/faq", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newFaq),
+      });
+      if (res.ok) {
+        setShowAddModal(false);
+        setNewFaq({
+          en: { question: "", answer: "" },
+          ka: { question: "", answer: "" }
+        });
+        await fetchAdminData();
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const syncFromSheets = async () => {
@@ -612,19 +714,19 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
       }
 
       await fetchAdminData();
-      alert("Data synced from Sheets to Neon Database successfully!");
+      setStatusMessage({ text: "One-time import from Sheets to Neon Database completed successfully!", type: "success" });
     } catch (error: any) {
-      console.error("Sync error:", error);
-      alert(`Sync failed: ${error.message || "Unknown error"}`);
+      console.error("Import error:", error);
+      setStatusMessage({ text: `Import failed: ${error.message || "Unknown error"}`, type: "error" });
     } finally {
       setIsSyncing(false);
     }
   };
 
   const deleteProduct = async (id: string) => {
-    if (!confirm("Are you sure?")) return;
     try {
       await fetch(`/api/products/${id}`, { method: "DELETE" });
+      setConfirmDelete(null);
       await fetchAdminData();
     } catch (err) {
       console.error(err);
@@ -632,9 +734,9 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
   };
 
   const deleteFaq = async (id: string) => {
-    if (!confirm("Are you sure?")) return;
     try {
       await fetch(`/api/faq/${id}`, { method: "DELETE" });
+      setConfirmDelete(null);
       await fetchAdminData();
     } catch (err) {
       console.error(err);
@@ -702,10 +804,11 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
               <button 
                 onClick={syncFromSheets}
                 disabled={isSyncing}
-                className="text-[#D4FF00] hover:text-white transition-colors disabled:opacity-50"
-                title="Sync from Sheets to Neon"
+                className="text-[#D4FF00] hover:text-white transition-colors disabled:opacity-50 flex items-center gap-2 px-2"
+                title="One-time Import from Sheets"
               >
-                <Settings size={14} className={isSyncing ? "animate-spin" : ""} />
+                <span className="text-[8px] font-bold">IMPORT</span>
+                <Database size={14} className={isSyncing ? "animate-spin" : ""} />
               </button>
             </div>
             <button 
@@ -732,7 +835,14 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
               FAQ ({faqs.length})
             </button>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
+             <button 
+              onClick={() => setShowAddModal(true)}
+              className="bg-[#D4FF00] text-black px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-[#b8dd00] transition-colors mb-4"
+            >
+              <Plus size={14} />
+              ADD {activeTab === "products" ? "PRODUCT" : "FAQ"}
+            </button>
              <button 
               onClick={fetchAdminData}
               className="pb-4 px-4 text-[10px] font-bold tracking-[0.2em] uppercase text-white/20 hover:text-[#D4FF00] transition-colors"
@@ -742,13 +852,170 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
           </div>
         </div>
 
+        {/* Add Modal */}
+        {showAddModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-zinc-900 border border-white/10 rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-big-noodle uppercase tracking-widest">
+                  ADD NEW {activeTab === "products" ? "PRODUCT" : "FAQ"}
+                </h2>
+                <button onClick={() => setShowAddModal(false)} className="text-white/40 hover:text-white">
+                  <X size={24} />
+                </button>
+              </div>
+
+              {activeTab === "products" ? (
+                <form onSubmit={handleAddProduct} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h3 className="text-[10px] text-[#D4FF00] uppercase tracking-widest font-bold">General Info</h3>
+                      <input 
+                        type="text" 
+                        placeholder="IMAGE URL..."
+                        className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00]"
+                        value={newProduct.image}
+                        onChange={e => setNewProduct({...newProduct, image: e.target.value})}
+                        required
+                      />
+                      <input 
+                        type="text" 
+                        placeholder="CATEGORY (EN)..."
+                        className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00]"
+                        value={newProduct.category_en}
+                        onChange={e => setNewProduct({
+                          ...newProduct, 
+                          category_en: e.target.value,
+                          en: { ...newProduct.en!, category: e.target.value }
+                        })}
+                        required
+                      />
+                      <input 
+                        type="text" 
+                        placeholder="CATEGORY (KA)..."
+                        className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00]"
+                        value={newProduct.category_ka}
+                        onChange={e => setNewProduct({
+                          ...newProduct, 
+                          category_ka: e.target.value,
+                          ka: { ...newProduct.ka!, category: e.target.value }
+                        })}
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <h3 className="text-[10px] text-[#D4FF00] uppercase tracking-widest font-bold">English Details</h3>
+                      <input 
+                        type="text" 
+                        placeholder="PRODUCT NAME (EN)..."
+                        className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00]"
+                        value={newProduct.en?.name}
+                        onChange={e => setNewProduct({...newProduct, en: {...newProduct.en!, name: e.target.value}})}
+                        required
+                      />
+                      <textarea 
+                        placeholder="DESCRIPTION (EN) - COMMA SEPARATED..."
+                        className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00] h-24"
+                        value={newProduct.en?.description.join(", ")}
+                        onChange={e => setNewProduct({...newProduct, en: {...newProduct.en!, description: e.target.value.split(",").map(s => s.trim())}})}
+                        required
+                      />
+                      <input 
+                        type="text" 
+                        placeholder="NUTRITION (EN)..."
+                        className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00]"
+                        value={newProduct.en?.nutrition}
+                        onChange={e => setNewProduct({...newProduct, en: {...newProduct.en!, nutrition: e.target.value}})}
+                      />
+                    </div>
+
+                    <div className="space-y-4 md:col-span-2">
+                      <h3 className="text-[10px] text-[#D4FF00] uppercase tracking-widest font-bold">Georgian Details</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <input 
+                          type="text" 
+                          placeholder="PRODUCT NAME (KA)..."
+                          className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00]"
+                          value={newProduct.ka?.name}
+                          onChange={e => setNewProduct({...newProduct, ka: {...newProduct.ka!, name: e.target.value}})}
+                          required
+                        />
+                        <input 
+                          type="text" 
+                          placeholder="NUTRITION (KA)..."
+                          className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00]"
+                          value={newProduct.ka?.nutrition}
+                          onChange={e => setNewProduct({...newProduct, ka: {...newProduct.ka!, nutrition: e.target.value}})}
+                        />
+                      </div>
+                      <textarea 
+                        placeholder="DESCRIPTION (KA) - COMMA SEPARATED..."
+                        className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00] h-24"
+                        value={newProduct.ka?.description.join(", ")}
+                        onChange={e => setNewProduct({...newProduct, ka: {...newProduct.ka!, description: e.target.value.split(",").map(s => s.trim())}})}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" className="w-full bg-[#D4FF00] text-black font-bold py-4 rounded-xl hover:bg-[#b8dd00] transition-colors uppercase tracking-widest mt-8">
+                    SAVE PRODUCT TO NEON
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleAddFaq} className="space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] text-[#D4FF00] uppercase tracking-widest font-bold">English FAQ</h3>
+                    <input 
+                      type="text" 
+                      placeholder="QUESTION (EN)..."
+                      className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00]"
+                      value={newFaq.en?.question}
+                      onChange={e => setNewFaq({...newFaq, en: {...newFaq.en!, question: e.target.value}})}
+                      required
+                    />
+                    <textarea 
+                      placeholder="ANSWER (EN)..."
+                      className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00] h-32"
+                      value={newFaq.en?.answer}
+                      onChange={e => setNewFaq({...newFaq, en: {...newFaq.en!, answer: e.target.value}})}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] text-[#D4FF00] uppercase tracking-widest font-bold">Georgian FAQ</h3>
+                    <input 
+                      type="text" 
+                      placeholder="QUESTION (KA)..."
+                      className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00]"
+                      value={newFaq.ka?.question}
+                      onChange={e => setNewFaq({...newFaq, ka: {...newFaq.ka!, question: e.target.value}})}
+                      required
+                    />
+                    <textarea 
+                      placeholder="ANSWER (KA)..."
+                      className="w-full bg-black border border-white/10 rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white outline-none focus:border-[#D4FF00] h-32"
+                      value={newFaq.ka?.answer}
+                      onChange={e => setNewFaq({...newFaq, ka: {...newFaq.ka!, answer: e.target.value}})}
+                      required
+                    />
+                  </div>
+                  <button type="submit" className="w-full bg-[#D4FF00] text-black font-bold py-4 rounded-xl hover:bg-[#b8dd00] transition-colors uppercase tracking-widest mt-8">
+                    SAVE FAQ TO NEON
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeTab === "products" ? (
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map(p => (
                 <div key={p.id} className="bg-zinc-900 rounded-2xl border border-white/10 overflow-hidden group relative">
                   <button 
-                    onClick={() => deleteProduct(p.id)}
+                    onClick={() => setConfirmDelete({ id: p.id, type: "product" })}
                     className="absolute top-2 right-2 z-10 p-2 bg-red-500/80 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <X size={14} />
@@ -774,7 +1041,7 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
                     <p className="text-[10px] text-white/40 uppercase tracking-widest line-clamp-1">{f.en.answer}</p>
                   </div>
                   <button 
-                    onClick={() => deleteFaq(f.id)}
+                    onClick={() => setConfirmDelete({ id: f.id, type: "faq" })}
                     className="p-2 text-white/20 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                   >
                     <X size={20} />
@@ -785,6 +1052,39 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
           </div>
         )}
 
+        {/* Status Message Toast */}
+        {statusMessage && (
+          <div className={`fixed bottom-10 right-10 z-[300] px-6 py-4 rounded-xl border shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-5 ${statusMessage.type === 'success' ? 'bg-green-500/10 border-green-500/50 text-green-500' : 'bg-red-500/10 border-red-500/50 text-red-500'}`}>
+            <span className="text-[10px] font-bold uppercase tracking-widest">{statusMessage.text}</span>
+            <button onClick={() => setStatusMessage(null)} className="hover:opacity-50">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {confirmDelete && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-zinc-900 border border-white/10 rounded-2xl p-8 w-full max-w-sm text-center">
+              <h2 className="text-2xl font-big-noodle uppercase tracking-widest mb-4">CONFIRM DELETE</h2>
+              <p className="text-white/40 text-[10px] uppercase tracking-widest mb-8">Are you sure you want to remove this item from the database?</p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setConfirmDelete(null)}
+                  className="flex-1 bg-white/5 border border-white/10 text-white font-bold py-3 rounded-lg hover:bg-white/10 transition-colors uppercase tracking-widest text-[10px]"
+                >
+                  CANCEL
+                </button>
+                <button 
+                  onClick={() => confirmDelete.type === 'product' ? deleteProduct(confirmDelete.id) : deleteFaq(confirmDelete.id)}
+                  className="flex-1 bg-red-500 text-white font-bold py-3 rounded-lg hover:bg-red-600 transition-colors uppercase tracking-widest text-[10px]"
+                >
+                  DELETE
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
