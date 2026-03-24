@@ -1,5 +1,5 @@
 {
   "name": "Kama - Fresh salad bar",
-  "description": "A bilingual (GEO/ENG) menu for Kama Bar, featuring real-time content management for products and FAQs via a secure admin dashboard powered by Supabase.",
+  "description": "A bilingual (GEO/ENG) menu for Kama Bar, featuring real-time content management for products and FAQs via a secure admin dashboard powered by Neon PostgreSQL.",
   "requestFramePermissions": []
 }

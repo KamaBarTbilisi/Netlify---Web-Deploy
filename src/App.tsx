@@ -265,9 +265,18 @@ function MenuSection({ lang }: { lang: "en" | "ka" }) {
     const fetchMenu = async () => {
       setLoading(true);
       try {
-        const url = localStorage.getItem("sheet_url") || MENU_CSV_URL;
-        const sheetData = await fetchProductsFromSheets(url);
-        setMenuData(sheetData);
+        const response = await fetch("/api/products");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.length > 0) {
+            setMenuData(data);
+          } else {
+            // Fallback to sheets if DB is empty
+            const url = localStorage.getItem("sheet_url") || MENU_CSV_URL;
+            const sheetData = await fetchProductsFromSheets(url);
+            setMenuData(sheetData);
+          }
+        }
       } catch (err) {
         console.error("Error fetching menu:", err);
       } finally {
@@ -423,15 +432,23 @@ function FAQSection({ lang }: { lang: "en" | "ka" }) {
     const fetchFaqs = async () => {
       setLoading(true);
       try {
-        let url = localStorage.getItem("sheet_url") || MENU_CSV_URL;
-        if (url.includes("docs.google.com/spreadsheets") && !url.includes("sheet=")) {
-          url = url + "&sheet=FAQ";
-        } else if (url === MENU_CSV_URL) {
-          url = FAQ_CSV_URL;
+        const response = await fetch("/api/faq");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.length > 0) {
+            setFaqData(data);
+          } else {
+            // Fallback to sheets
+            let url = localStorage.getItem("sheet_url") || MENU_CSV_URL;
+            if (url.includes("docs.google.com/spreadsheets") && !url.includes("sheet=")) {
+              url = url + "&sheet=FAQ";
+            } else if (url === MENU_CSV_URL) {
+              url = FAQ_CSV_URL;
+            }
+            const sheetData = await fetchFaqsFromSheets(url);
+            setFaqData(sheetData);
+          }
         }
-        
-        const sheetData = await fetchFaqsFromSheets(url);
-        setFaqData(sheetData);
       } catch (err) {
         console.error("Error fetching FAQs:", err);
       } finally {
@@ -520,24 +537,18 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
   const navigate = useNavigate();
 
   const fetchAdminData = useCallback(async () => {
-    if (!sheetUrl) return;
     setIsSyncing(true);
     try {
-      const pData = await fetchProductsFromSheets(sheetUrl);
-      setProducts(pData);
-
-      let faqUrl = sheetUrl;
-      if (sheetUrl.includes("docs.google.com/spreadsheets") && !sheetUrl.includes("sheet=")) {
-        faqUrl = sheetUrl + "&sheet=FAQ";
-      }
-      const fData = await fetchFaqsFromSheets(faqUrl);
-      setFaqs(fData);
+      const pRes = await fetch("/api/products");
+      const fRes = await fetch("/api/faq");
+      if (pRes.ok) setProducts(await pRes.json());
+      if (fRes.ok) setFaqs(await fRes.json());
     } catch (err) {
       console.error("Error fetching admin data:", err);
     } finally {
       setIsSyncing(false);
     }
-  }, [sheetUrl]);
+  }, []);
 
   useEffect(() => {
     const savedSession = localStorage.getItem("admin_logged_in");
@@ -576,22 +587,57 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
     localStorage.setItem("sheet_url", sheetUrl);
     setIsSyncing(true);
     try {
+      // Fetch from sheets
       const productsData = await fetchProductsFromSheets(sheetUrl);
-      setProducts(productsData);
-
       let faqUrl = sheetUrl;
       if (sheetUrl.includes("docs.google.com/spreadsheets") && !sheetUrl.includes("sheet=")) {
         faqUrl = sheetUrl + "&sheet=FAQ";
       }
       const faqsData = await fetchFaqsFromSheets(faqUrl);
-      setFaqs(faqsData);
 
-      alert("Data synced successfully from Google Sheets!");
+      // Save to Neon
+      for (const p of productsData) {
+        await fetch("/api/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(p),
+        });
+      }
+      for (const f of faqsData) {
+        await fetch("/api/faq", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(f),
+        });
+      }
+
+      await fetchAdminData();
+      alert("Data synced from Sheets to Neon Database successfully!");
     } catch (error: any) {
       console.error("Sync error:", error);
       alert(`Sync failed: ${error.message || "Unknown error"}`);
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const deleteProduct = async (id: string) => {
+    if (!confirm("Are you sure?")) return;
+    try {
+      await fetch(`/api/products/${id}`, { method: "DELETE" });
+      await fetchAdminData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const deleteFaq = async (id: string) => {
+    if (!confirm("Are you sure?")) return;
+    try {
+      await fetch(`/api/faq/${id}`, { method: "DELETE" });
+      await fetchAdminData();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -642,7 +688,7 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
             <button onClick={() => navigate("/")} className="text-white/40 hover:text-white transition-colors">
               <ArrowLeft size={24} />
             </button>
-            <h1 className="text-3xl md:text-5xl font-big-noodle uppercase tracking-widest">CMS DASHBOARD</h1>
+            <h1 className="text-3xl md:text-5xl font-big-noodle uppercase tracking-widest">CMS DASHBOARD (NEON)</h1>
           </div>
           <div className="flex flex-col md:flex-row gap-4 items-center flex-1 justify-end">
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1 w-full max-w-md">
@@ -657,7 +703,7 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
                 onClick={syncFromSheets}
                 disabled={isSyncing}
                 className="text-[#D4FF00] hover:text-white transition-colors disabled:opacity-50"
-                title="Update from Excel"
+                title="Sync from Sheets to Neon"
               >
                 <Settings size={14} className={isSyncing ? "animate-spin" : ""} />
               </button>
@@ -677,29 +723,36 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
               onClick={() => setActiveTab("products")}
               className={`pb-4 px-4 text-xs font-bold tracking-[0.2em] uppercase transition-colors ${activeTab === "products" ? "text-[#D4FF00] border-b-2 border-[#D4FF00]" : "text-white/40 hover:text-white"}`}
             >
-              PRODUCTS
+              PRODUCTS ({products.length})
             </button>
             <button 
               onClick={() => setActiveTab("faqs")}
               className={`pb-4 px-4 text-xs font-bold tracking-[0.2em] uppercase transition-colors ${activeTab === "faqs" ? "text-[#D4FF00] border-b-2 border-[#D4FF00]" : "text-white/40 hover:text-white"}`}
             >
-              FAQ
+              FAQ ({faqs.length})
             </button>
           </div>
-          <button 
-            onClick={syncFromSheets}
-            disabled={isSyncing}
-            className="pb-4 px-4 text-[10px] font-bold tracking-[0.2em] uppercase text-white/20 hover:text-[#D4FF00] transition-colors disabled:opacity-50"
-          >
-            {isSyncing ? "SYNCING..." : "SYNC FROM SHEETS"}
-          </button>
+          <div className="flex gap-4">
+             <button 
+              onClick={fetchAdminData}
+              className="pb-4 px-4 text-[10px] font-bold tracking-[0.2em] uppercase text-white/20 hover:text-[#D4FF00] transition-colors"
+            >
+              REFRESH
+            </button>
+          </div>
         </div>
 
         {activeTab === "products" ? (
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map(p => (
-                <div key={p.id} className="bg-zinc-900 rounded-2xl border border-white/10 overflow-hidden group">
+                <div key={p.id} className="bg-zinc-900 rounded-2xl border border-white/10 overflow-hidden group relative">
+                  <button 
+                    onClick={() => deleteProduct(p.id)}
+                    className="absolute top-2 right-2 z-10 p-2 bg-red-500/80 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X size={14} />
+                  </button>
                   <div className="aspect-square relative">
                     <img src={p.image} className="w-full h-full object-cover" alt={p.en.name} />
                   </div>
@@ -715,11 +768,17 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
           <div className="space-y-8">
             <div className="space-y-4">
               {faqs.map(f => (
-                <div key={f.id} className="bg-zinc-900 p-6 rounded-2xl border border-white/10 flex justify-between items-center">
+                <div key={f.id} className="bg-zinc-900 p-6 rounded-2xl border border-white/10 flex justify-between items-center group">
                   <div>
                     <h4 className="text-sm font-bold uppercase tracking-widest mb-2">{f.en.question}</h4>
                     <p className="text-[10px] text-white/40 uppercase tracking-widest line-clamp-1">{f.en.answer}</p>
                   </div>
+                  <button 
+                    onClick={() => deleteFaq(f.id)}
+                    className="p-2 text-white/20 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
               ))}
             </div>

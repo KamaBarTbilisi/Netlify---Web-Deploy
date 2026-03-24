@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A menu item with details in English and Georgian.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "image": { "type": "string" },
+        "category_en": { "type": "string" },
+        "category_ka": { "type": "string" },
+        "order": { "type": "integer" },
+        "en": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "description": { "type": "array", "items": { "type": "string" } },
+            "nutrition": { "type": "string" },
+            "category": { "type": "string" }
+          }
+        },
+        "ka": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "description": { "type": "array", "items": { "type": "string" } },
+            "nutrition": { "type": "string" },
+            "category": { "type": "string" }
+          }
+        }
+      },
+      "required": ["image", "category_en", "category_ka", "en", "ka"]
+    },
+    "FAQItem": {
+      "title": "FAQItem",
+      "description": "A frequently asked question in English and Georgian.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "order": { "type": "integer" },
+        "en": {
+          "type": "object",
+          "properties": {
+            "question": { "type": "string" },
+            "answer": { "type": "string" }
+          }
+        },
+        "ka": {
+          "type": "object",
+          "properties": {
+            "question": { "type": "string" },
+            "answer": { "type": "string" }
+          }
+        }
+      },
+      "required": ["en", "ka"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A customer review.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "rating": { "type": "integer" },
+        "comment": { "type": "string" },
+        "date": { "type": "string" },
+        "order": { "type": "integer" }
+      },
+      "required": ["name", "rating", "comment"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of menu products."
+    },
+    "/faqs/{faqId}": {
+      "schema": "FAQItem",
+      "description": "Collection of FAQ items."
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Collection of customer reviews."
+    }
+  }
+}

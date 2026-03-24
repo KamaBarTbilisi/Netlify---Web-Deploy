@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: products
+    // Document ID: productId
+    // Fields:
+    //   - id: string
+    //   - image: string (required)
+    //   - category_en: string (required)
+    //   - category_ka: string (required)
+    //   - order: integer
+    //   - en: map (required)
+    //     - name: string
+    //     - description: list
+    //     - nutrition: string
+    //     - category: string
+    //   - ka: map (required)
+    //     - name: string
+    //     - description: list
+    //     - nutrition: string
+    //     - category: string
+    //
+    // Collection: faqs
+    // Document ID: faqId
+    // Fields:
+    //   - id: string
+    //   - order: integer
+    //   - en: map (required)
+    //     - question: string
+    //     - answer: string
+    //   - ka: map (required)
+    //     - question: string
+    //     - answer: string
+    //
+    // Collection: reviews
+    // Document ID: reviewId
+    // Fields:
+    //   - id: string
+    //   - name: string (required)
+    //   - rating: integer (required)
+    //   - comment: string (required)
+    //   - date: string
+    //   - order: integer
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "verybadagency@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidProduct(data) {
+      return data.image is string &&
+             data.category_en is string &&
+             data.category_ka is string &&
+             data.en is map &&
+             data.ka is map;
+    }
+
+    function isValidFAQ(data) {
+      return data.en is map &&
+             data.ka is map;
+    }
+
+    function isValidReview(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() > 0;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    match /products/{productId} {
+      allow read: if true; // Publicly readable
+      allow create, update: if isAdmin() && isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /faqs/{faqId} {
+      allow read: if true; // Publicly readable
+      allow create, update: if isAdmin() && isValidFAQ(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true; // Publicly readable
+      allow create, update: if isAdmin() && isValidReview(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
