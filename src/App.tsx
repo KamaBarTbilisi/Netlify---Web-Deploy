@@ -624,6 +624,12 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
   const fetchAdminData = useCallback(async () => {
     setIsSyncing(true);
     try {
+      // Test CORS
+      console.log("Testing CORS from:", `${API_URL}/api/test`);
+      const tRes = await fetch(`${API_URL}/api/test`);
+      if (tRes.ok) console.log("CORS Test Success:", await tRes.json());
+      else console.error("CORS Test Failed:", tRes.statusText);
+
       // Check health
       console.log("Fetching health from:", `${API_URL}/api/health`);
       const hRes = await fetch(`${API_URL}/api/health`);
