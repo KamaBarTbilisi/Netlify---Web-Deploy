@@ -45,6 +45,10 @@ async function startServer() {
     }
     try {
       const db = getPool();
+      // Test connection
+      await db.query("SELECT 1");
+      console.log("Successfully connected to Neon PostgreSQL");
+      
       await db.query(`
         CREATE TABLE IF NOT EXISTS products (
           id SERIAL PRIMARY KEY,
@@ -65,8 +69,38 @@ async function startServer() {
   initDb();
 
   // API routes
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", dbConnected: !!process.env.DATABASE_URL });
+  app.get("/api/health", async (req, res) => {
+    try {
+      if (!process.env.DATABASE_URL) {
+        return res.status(500).json({ status: "error", dbConnected: false, error: "DATABASE_URL not set" });
+      }
+      const db = getPool();
+      await db.query("SELECT 1");
+      res.json({ status: "ok", dbConnected: true });
+    } catch (error) {
+      console.error("Health check failed:", error);
+      res.status(500).json({ status: "error", dbConnected: false, error: error instanceof Error ? error.message : "Database connection failed" });
+    }
+  });
+
+  // Proxy for Google Sheets to bypass CORS
+  app.get("/api/proxy-sheets", async (req, res) => {
+    const { url } = req.query;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ error: "URL is required" });
+    }
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.statusText}`);
+      }
+      const text = await response.text();
+      res.send(text);
+    } catch (error) {
+      console.error("Proxy error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Internal Server Error" });
+    }
   });
 
   // CMS API: Products

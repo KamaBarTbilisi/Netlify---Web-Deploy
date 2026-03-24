@@ -24,12 +24,14 @@ import {
   Database
 } from "lucide-react";
 
-const MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/13fg0K72AoZziXeQ5WOV8OCC6kF4Si6UtfL5sIipwC7c/pub?gid=876610475&output=csv";
-const FAQ_CSV_URL = "https://docs.google.com/spreadsheets/d/13fg0K72AoZziXeQ5WOV8OCC6kF4Si6UtfL5sIipwC7c/pub?gid=151048700&output=csv"; // Assuming FAQ is on another sheet or same if not specified
+const MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/13fg0K72AoZziXeQ5WOV8OCC6kF4Si6UtfL5sIipwC7c/export?format=csv&gid=876610475";
+const FAQ_CSV_URL = "https://docs.google.com/spreadsheets/d/13fg0K72AoZziXeQ5WOV8OCC6kF4Si6UtfL5sIipwC7c/export?format=csv&gid=151048700";
 
 const fetchProductsFromSheets = async (url: string): Promise<Product[]> => {
   try {
-    const response = await fetch(url);
+    const proxyUrl = `/api/proxy-sheets?url=${encodeURIComponent(getExportUrl(url))}`;
+    const response = await fetch(proxyUrl);
+    if (!response.ok) throw new Error("Failed to fetch via proxy");
     const csvText = await response.text();
     return new Promise((resolve, reject) => {
       Papa.parse(csvText, {
@@ -81,7 +83,9 @@ const fetchProductsFromSheets = async (url: string): Promise<Product[]> => {
 
 const fetchFaqsFromSheets = async (url: string): Promise<FAQItem[]> => {
   try {
-    const response = await fetch(url);
+    const proxyUrl = `/api/proxy-sheets?url=${encodeURIComponent(getExportUrl(url))}`;
+    const response = await fetch(proxyUrl);
+    if (!response.ok) throw new Error("Failed to fetch via proxy");
     const csvText = await response.text();
     return new Promise((resolve, reject) => {
       Papa.parse(csvText, {
@@ -130,6 +134,24 @@ const fetchFaqsFromSheets = async (url: string): Promise<FAQItem[]> => {
     console.error("Error fetching FAQs from sheets:", e);
     return [];
   }
+};
+
+const getExportUrl = (url: string) => {
+  if (!url) return "";
+  // If it's already an export URL or pub URL, leave it
+  if (url.includes("/export?") || url.includes("/pub?")) return url;
+  
+  // If it's an edit URL, convert to export
+  if (url.includes("/edit")) {
+    const match = url.match(/\/d\/(.+?)\/edit/);
+    if (match) {
+      const id = match[1];
+      const gidMatch = url.match(/gid=(\d+)/);
+      const gid = gidMatch ? gidMatch[1] : "0";
+      return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
+    }
+  }
+  return url;
 };
 
 const getRawGithubUrl = (url: string) => {
@@ -577,6 +599,7 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; type: "product" | "faq" } | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [dbStatus, setDbStatus] = useState<{ connected: boolean; error?: string } | null>(null);
   
   // Form states
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
@@ -596,6 +619,11 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
   const fetchAdminData = useCallback(async () => {
     setIsSyncing(true);
     try {
+      // Check health
+      const hRes = await fetch("/api/health");
+      const hData = await hRes.json();
+      setDbStatus({ connected: hData.dbConnected, error: hData.error });
+
       const pRes = await fetch("/api/products");
       const fRes = await fetch("/api/faq");
       if (pRes.ok) setProducts(await pRes.json());
@@ -790,7 +818,12 @@ function AdminDashboard({ lang }: { lang: "en" | "ka" }) {
             <button onClick={() => navigate("/")} className="text-white/40 hover:text-white transition-colors">
               <ArrowLeft size={24} />
             </button>
-            <h1 className="text-3xl md:text-5xl font-big-noodle uppercase tracking-widest">CMS DASHBOARD (NEON)</h1>
+            <h1 className="text-3xl md:text-5xl font-big-noodle uppercase tracking-widest flex items-center gap-4">
+              CMS DASHBOARD (NEON)
+              {dbStatus && (
+                <div className={`w-3 h-3 rounded-full ${dbStatus.connected ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`} title={dbStatus.connected ? "Database Connected" : `Database Error: ${dbStatus.error}`} />
+              )}
+            </h1>
           </div>
           <div className="flex flex-col md:flex-row gap-4 items-center flex-1 justify-end">
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1 w-full max-w-md">
