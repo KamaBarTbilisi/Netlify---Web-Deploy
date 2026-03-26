@@ -8,43 +8,21 @@ service cloud.firestore {
     // Collection: products
     // Document ID: productId
     // Fields:
-    //   - id: string
     //   - image: string (required)
     //   - category_en: string (required)
     //   - category_ka: string (required)
-    //   - order: integer
-    //   - en: map (required)
-    //     - name: string
-    //     - description: list
-    //     - nutrition: string
-    //     - category: string
-    //   - ka: map (required)
-    //     - name: string
-    //     - description: list
-    //     - nutrition: string
-    //     - category: string
+    //   - en: object (required)
+    //   - ka: object (required)
+    //   - order: number (optional)
+    //   - created_at: timestamp (optional)
     //
-    // Collection: faqs
+    // Collection: faq
     // Document ID: faqId
     // Fields:
-    //   - id: string
-    //   - order: integer
-    //   - en: map (required)
-    //     - question: string
-    //     - answer: string
-    //   - ka: map (required)
-    //     - question: string
-    //     - answer: string
-    //
-    // Collection: reviews
-    // Document ID: reviewId
-    // Fields:
-    //   - id: string
-    //   - name: string (required)
-    //   - rating: integer (required)
-    //   - comment: string (required)
-    //   - date: string
-    //   - order: integer
+    //   - en: object (required)
+    //   - ka: object (required)
+    //   - order: number (optional)
+    //   - created_at: timestamp (optional)
     //
     // ===============================================================
 
@@ -56,64 +34,38 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        (request.auth.token.email == "verybadagency@gmail.com" && request.auth.token.email_verified == true);
+      return isAuthenticated() && 
+             (request.auth.token.email == "verybadagency@gmail.com" && request.auth.token.email_verified == true);
     }
 
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
-    }
-
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-
-    // ===============================================================
-    // Domain Validators
-    // ===============================================================
     function isValidProduct(data) {
-      return data.image is string &&
-             data.category_en is string &&
-             data.category_ka is string &&
-             data.en is map &&
-             data.ka is map;
+      return data.keys().hasAll(['image', 'category_en', 'category_ka', 'en', 'ka']) &&
+             data.image is string && data.image.size() < 1000 &&
+             data.category_en is string && data.category_en.size() < 100 &&
+             data.category_ka is string && data.category_ka.size() < 100;
     }
 
-    function isValidFAQ(data) {
-      return data.en is map &&
-             data.ka is map;
-    }
-
-    function isValidReview(data) {
-      return data.name is string && data.name.size() > 0 &&
-             data.rating is int && data.rating >= 1 && data.rating <= 5 &&
-             data.comment is string && data.comment.size() > 0;
+    function isValidFaq(data) {
+      return data.keys().hasAll(['en', 'ka']) &&
+             data.en is map && data.ka is map;
     }
 
     // ===============================================================
     // Rules
     // ===============================================================
+
     match /products/{productId} {
       allow read: if true; // Publicly readable
-      allow create, update: if isAdmin() && isValidProduct(request.resource.data);
+      allow create: if isAdmin() && isValidProduct(request.resource.data);
+      allow update: if isAdmin() && isValidProduct(request.resource.data);
       allow delete: if isAdmin();
     }
 
-    match /faqs/{faqId} {
+    match /faq/{faqId} {
       allow read: if true; // Publicly readable
-      allow create, update: if isAdmin() && isValidFAQ(request.resource.data);
+      allow create: if isAdmin() && isValidFaq(request.resource.data);
+      allow update: if isAdmin() && isValidFaq(request.resource.data);
       allow delete: if isAdmin();
-    }
-
-    match /reviews/{reviewId} {
-      allow read: if true; // Publicly readable
-      allow create, update: if isAdmin() && isValidReview(request.resource.data);
-      allow delete: if isAdmin();
-    }
-
-    // Default deny
-    match /{path=**} {
-      allow read, write: if false;
     }
   }
 }

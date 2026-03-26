@@ -2,14 +2,13 @@
   "entities": {
     "Product": {
       "title": "Product",
-      "description": "A menu item with details in English and Georgian.",
+      "description": "A menu item with multilingual support and image.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "image": { "type": "string" },
-        "category_en": { "type": "string" },
-        "category_ka": { "type": "string" },
-        "order": { "type": "integer" },
+        "image": { "type": "string", "description": "URL to the product image" },
+        "category_en": { "type": "string", "description": "Category name in English" },
+        "category_ka": { "type": "string", "description": "Category name in Georgian" },
+        "order": { "type": "number", "description": "Display order" },
         "en": {
           "type": "object",
           "properties": {
@@ -27,17 +26,17 @@
             "nutrition": { "type": "string" },
             "category": { "type": "string" }
           }
-        }
+        },
+        "created_at": { "type": "string", "format": "date-time" }
       },
       "required": ["image", "category_en", "category_ka", "en", "ka"]
     },
-    "FAQItem": {
-      "title": "FAQItem",
-      "description": "A frequently asked question in English and Georgian.",
+    "FAQ": {
+      "title": "FAQ",
+      "description": "A frequently asked question with multilingual support.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "order": { "type": "integer" },
+        "order": { "type": "number" },
         "en": {
           "type": "object",
           "properties": {
@@ -51,37 +50,20 @@
             "question": { "type": "string" },
             "answer": { "type": "string" }
           }
-        }
+        },
+        "created_at": { "type": "string", "format": "date-time" }
       },
       "required": ["en", "ka"]
-    },
-    "Review": {
-      "title": "Review",
-      "description": "A customer review.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "rating": { "type": "integer" },
-        "comment": { "type": "string" },
-        "date": { "type": "string" },
-        "order": { "type": "integer" }
-      },
-      "required": ["name", "rating", "comment"]
     }
   },
   "firestore": {
     "/products/{productId}": {
       "schema": "Product",
-      "description": "Collection of menu products."
+      "description": "Collection of menu products"
     },
-    "/faqs/{faqId}": {
-      "schema": "FAQItem",
-      "description": "Collection of FAQ items."
-    },
-    "/reviews/{reviewId}": {
-      "schema": "Review",
-      "description": "Collection of customer reviews."
+    "/faq/{faqId}": {
+      "schema": "FAQ",
+      "description": "Collection of FAQ items"
     }
   }
 }
