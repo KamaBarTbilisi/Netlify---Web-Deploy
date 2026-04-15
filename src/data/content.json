@@ -1,0 +1,108 @@
+{
+  "products": [
+    {
+      "id": "1",
+      "image": "https://raw.githubusercontent.com/KamaBarTbilisi/Kama-Web-assets/main/menu/salad1.jpg",
+      "category_en": "Salad",
+      "category_ka": "სალათი",
+      "en": {
+        "name": "Kama Salad",
+        "description": ["Fresh greens", "Cherry tomatoes", "Special dressing"],
+        "nutrition": "250 kcal",
+        "category": "Salad"
+      },
+      "ka": {
+        "name": "კამა სალათი",
+        "description": ["ახალი მწვანილი", "ჩერი პომიდორი", "სპეციალური დრესინგი"],
+        "nutrition": "250 კკალ",
+        "category": "სალათი"
+      }
+    }
+  ],
+  "faqs": [
+    {
+      "id": "1",
+      "order": 1,
+      "en": {
+        "question": "What are your opening hours?",
+        "answer": "We are open from 10:00 AM to 11:00 PM every day."
+      },
+      "ka": {
+        "question": "რა დროს მუშაობთ?",
+        "answer": "ჩვენ ვმუშაობთ ყოველდღე 10:00-დან 23:00-მდე."
+      }
+    },
+    {
+      "id": "2",
+      "order": 2,
+      "en": {
+        "question": "Do you offer delivery?",
+        "answer": "Yes, we offer delivery through Wolt and Glovo."
+      },
+      "ka": {
+        "question": "გაქვთ მიტანის სერვისი?",
+        "answer": "დიახ, ჩვენ გვაქვს მიტანის სერვისი Wolt-ისა და Glovo-ს მეშვეობით."
+      }
+    },
+    {
+      "id": "3",
+      "order": 3,
+      "en": {
+        "question": "Are there vegetarian options?",
+        "answer": "Yes, we have a wide variety of vegetarian and vegan options in our menu."
+      },
+      "ka": {
+        "question": "გაქვთ ვეგეტარიანული კერძები?",
+        "answer": "დიახ, ჩვენს მენიუში გვაქვს ვეგეტარიანული და ვეგანური კერძების ფართო არჩევანი."
+      }
+    },
+    {
+      "id": "4",
+      "order": 4,
+      "en": {
+        "question": "Do I need a reservation?",
+        "answer": "Reservations are recommended for large groups, but walk-ins are always welcome."
+      },
+      "ka": {
+        "question": "საჭიროა თუ არა დაჯავშნა?",
+        "answer": "დაჯავშნა რეკომენდებულია დიდი ჯგუფებისთვის, თუმცა ყოველთვის მივესალმებით სტუმრებს დაჯავშნის გარეშეც."
+      }
+    },
+    {
+      "id": "5",
+      "order": 5,
+      "en": {
+        "question": "Where are you located?",
+        "answer": "We are located in the heart of Tbilisi, at 123 Kama Street."
+      },
+      "ka": {
+        "question": "სად მდებარეობთ?",
+        "answer": "ჩვენ მდებარეობთ თბილისის ცენტრში, კამას ქუჩა 123-ში."
+      }
+    }
+  ],
+  "reviews": [
+    {
+      "id": "1",
+      "en": {
+        "name": "John Doe",
+        "text": "Amazing place and great food!"
+      },
+      "ka": {
+        "name": "ჯონ დოუ",
+        "text": "საოცარი ადგილი და გემრიელი საკვები!"
+      }
+    }
+  ],
+  "hero": {
+    "image": "https://raw.githubusercontent.com/KamaBarTbilisi/Kama-Web-assets/87b07ca5c7cd86f811cf6a7819f166f0d8dc086b/Section%201%20-%20Hero%20image.png",
+    "en": {
+      "seo_left": "SEO TEXT BLOCK LEFT/ SEO TEXT BLOCK LEFT/ SEO TEXT BLOCK LEFT/ SEO TEXT BLOCK LEFT/ SEO TEXT BLOCK LEFT/ SEO TEXT BLOCK LEFT/ SEO TEXT BLOCK LEFT/ SEO TEXT BLOCK LEFT/",
+      "seo_right": "SEO TEXT BLOCK RIGHT// SEO TEXT BLOCK RIGHT// SEO TEXT BLOCK RIGHT// SEO TEXT BLOCK RIGHT// SEO TEXT BLOCK RIGHT// SEO TEXT BLOCK RIGHT// SEO TEXT BLOCK RIGHT// SEO TEXT BLOCK RIGHT//"
+    },
+    "ka": {
+      "seo_left": "SEO ტექსტის ბლოკი მარცხნივ/ SEO ტექსტის ბლოკი მარცხნივ/ SEO ტექსტის ბლოკი მარცხნივ/ SEO ტექსტის ბლოკი მარცხნივ/",
+      "seo_right": "SEO ტექსტის ბლოკი მარჯვნივ// SEO ტექსტის ბლოკი მარჯვნივ// SEO ტექსტის ბლოკი მარჯვნივ// SEO ტექსტის ბლოკი მარჯვნივ//"
+    }
+  }
+}
