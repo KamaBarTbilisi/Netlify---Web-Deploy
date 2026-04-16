@@ -588,7 +588,7 @@ function ReviewSection({ lang, reviews }: { lang: "en" | "ka", reviews: Review[]
   if (reviews.length === 0) return null;
 
   return (
-    <section id="reviews" className="relative z-[60] w-full py-32 overflow-hidden min-h-screen flex items-center" style={{ touchAction: 'pan-y' }}>
+    <section id="reviews" className="relative z-[60] w-full py-32 min-h-screen flex items-center overflow-x-hidden" style={{ touchAction: 'pan-y' }}>
       {/* Background Image */}
       <div className="absolute inset-0 z-0">
         <img 
@@ -600,11 +600,11 @@ function ReviewSection({ lang, reviews }: { lang: "en" | "ka", reviews: Review[]
           height="900"
           referrerPolicy="no-referrer"
         />
-        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black to-transparent" />
       </div>
 
-      <div className="max-w-[1440px] mx-auto w-full relative z-10 px-4 md:px-10">
-        <div className="flex flex-col items-center mb-20">
+      <div className="w-full relative z-10">
+        <div className="max-w-[1440px] mx-auto px-4 md:px-10 flex flex-col items-center mb-20">
           <h2 className="text-3xl md:text-6xl font-big-noodle font-normal tracking-normal text-white mb-4 uppercase">
             {lang === "en" ? "REVIEWS" : "შეფასებები"}
           </h2>
@@ -615,13 +615,13 @@ function ReviewSection({ lang, reviews }: { lang: "en" | "ka", reviews: Review[]
           {/* Navigation Arrows */}
           <button 
             onClick={() => scroll('left')}
-            className="absolute left-[-20px] md:left-[-60px] top-1/2 -translate-y-1/2 z-20 p-2 text-white opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity hidden md:block"
+            className="absolute left-4 md:left-10 lg:left-[calc((100vw-1440px)/2+2.5rem)] top-1/2 -translate-y-1/2 z-20 p-2 text-white opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity hidden md:block"
           >
             <ChevronLeft size={48} />
           </button>
           <button 
             onClick={() => scroll('right')}
-            className="absolute right-[-20px] md:right-[-60px] top-1/2 -translate-y-1/2 z-20 p-2 text-white opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity hidden md:block"
+            className="absolute right-4 md:right-10 lg:right-[calc((100vw-1440px)/2+2.5rem)] top-1/2 -translate-y-1/2 z-20 p-2 text-white opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity hidden md:block"
           >
             <ChevronRight size={48} />
           </button>
@@ -632,7 +632,7 @@ function ReviewSection({ lang, reviews }: { lang: "en" | "ka", reviews: Review[]
             onMouseLeave={handleMouseLeave}
             onMouseUp={handleMouseUp}
             onMouseMove={handleMouseMove}
-            className={`w-full overflow-x-auto scrollbar-hide pb-10 px-4 md:px-10 snap-x snap-mandatory ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
+            className={`w-full overflow-x-auto scrollbar-hide pb-10 px-4 md:px-10 lg:px-[calc((100vw-1440px)/2+2.5rem)] snap-x snap-mandatory ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
             style={{ touchAction: 'pan-x' }}
           >
             <div className="flex gap-8 min-w-max">
@@ -1931,10 +1931,10 @@ function MainApp({ lang, setLang, data }: { lang: "en" | "ka"; setLang: (l: "en"
     offset: ["start start", "end end"]
   });
 
-  const modelOpacity = useTransform(scrollYProgress, [0.98, 1], [1, 0]);
+  const modelOpacity = 1;
 
-  // Story background opacity: fades in at start of story, fades out at end
-  const storyBgOpacity = useTransform(stepsProgress, [0, 0.05, 0.98, 1], [0, 1, 1, 0]);
+  // Story background opacity: fades in at start of story
+  const storyBgOpacity = useTransform(stepsProgress, [0, 0.05], [0, 1]);
 
   return (
     <div className="min-h-screen w-full max-w-full bg-black text-white font-sans selection:bg-red-500/30 overflow-x-hidden relative" style={{ touchAction: 'pan-y' }}>
@@ -1956,7 +1956,6 @@ function MainApp({ lang, setLang, data }: { lang: "en" | "ka"; setLang: (l: "en"
       <motion.div 
         style={{ 
           opacity: storyBgOpacity,
-          visibility: useTransform(stepsProgress, (v) => v >= 0.99 ? "hidden" : "visible") as any
         }}
         className="fixed inset-0 z-10 pointer-events-none flex items-center justify-center overflow-hidden"
       >
@@ -1975,7 +1974,6 @@ function MainApp({ lang, setLang, data }: { lang: "en" | "ka"; setLang: (l: "en"
       <motion.div 
         style={{ 
           opacity: modelOpacity,
-          visibility: useTransform(scrollYProgress, (v) => v >= 1 ? "hidden" : "visible") as any
         }}
         className="fixed inset-0 flex items-center justify-center overflow-hidden transition-all duration-300 z-20 pointer-events-none"
       >
