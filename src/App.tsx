@@ -2023,7 +2023,7 @@ function MainApp({ lang, setLang, data }: { lang: "en" | "ka"; setLang: (l: "en"
       </motion.div>
 
       {/* Snap Container */}
-      <div className="relative w-full max-w-full overflow-x-hidden" style={{ touchAction: 'pan-y' }}>
+      <div className="relative z-30 w-full max-w-full overflow-x-hidden" style={{ touchAction: 'pan-y' }}>
         <div ref={heroAndStepsRef} className="w-full max-w-full overflow-x-hidden" style={{ touchAction: 'pan-y' }}>
           {/* Section 1: Hero */}
           <section id="home" className="snap-section pt-12">
