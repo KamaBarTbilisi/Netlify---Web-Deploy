@@ -2023,10 +2023,10 @@ function MainApp({ lang, setLang, data }: { lang: "en" | "ka"; setLang: (l: "en"
       </motion.div>
 
       {/* Snap Container */}
-      <div className="relative w-full max-w-full overflow-x-hidden" style={{ touchAction: 'pan-y' }}>
-        <div ref={heroAndStepsRef} className="w-full max-w-full overflow-x-hidden" style={{ touchAction: 'pan-y' }}>
+      <div className="w-full max-w-full" style={{ touchAction: 'pan-y' }}>
+        <div ref={heroAndStepsRef} style={{ touchAction: 'pan-y' }}>
           {/* Section 1: Hero */}
-          <section id="home" className="snap-section pt-12 relative z-10">
+          <section id="home" className="snap-section pt-12 relative z-10 transform-gpu translate-z-0">
             <main className="flex flex-col items-center h-full relative">
               <h1 className="sr-only">
                 {lang === "en" ? "Kama - Healthy Salad Bar & Protein Bowls in Tbilisi" : "კამა - ჯანსაღი კვება და ბოულები თბილისში"}
@@ -2075,7 +2075,7 @@ function MainApp({ lang, setLang, data }: { lang: "en" | "ka"; setLang: (l: "en"
           </section>
 
           {/* Story Section: 3 Phase Steps */}
-          <div id="how-we-do" className="relative z-[100]" ref={stepsRef}>
+          <div id="how-we-do" className="relative z-[100] transform-gpu translate-z-0" ref={stepsRef}>
             {/* Phase 1 */}
             <section className="snap-section h-screen flex justify-end items-center p-8 md:p-20 relative overflow-x-hidden">
               <div className="z-[110] text-right">
@@ -2128,16 +2128,16 @@ function MainApp({ lang, setLang, data }: { lang: "en" | "ka"; setLang: (l: "en"
         </div>
 
         {/* Other Sections */}
-        <LazySection id="menu" className="snap-section h-auto min-h-0 lg:min-h-screen bg-black z-[120] relative overflow-x-hidden">
+        <LazySection id="menu" className="snap-section h-auto min-h-0 lg:min-h-screen bg-black z-[120] relative transform-gpu translate-z-0">
           <MenuSection lang={lang} menuData={menuData} />
         </LazySection>
-        <LazySection id="reviews" className="snap-section h-auto min-h-0 lg:min-h-screen bg-black z-[60] overflow-x-hidden">
+        <LazySection id="reviews" className="snap-section h-auto min-h-0 lg:min-h-screen bg-black z-[120] relative transform-gpu translate-z-0">
           <ReviewSection lang={lang} reviews={data.reviews} />
         </LazySection>
-        <LazySection id="faq" className="snap-section h-auto min-h-0 lg:min-h-screen bg-black z-[60] overflow-x-hidden">
+        <LazySection id="faq" className="snap-section h-auto min-h-0 lg:min-h-screen bg-black z-[120] relative transform-gpu translate-z-0">
           <FAQSection lang={lang} faqData={data.faqs} />
         </LazySection>
-        <LazySection id="footer" className="snap-section h-auto md:h-screen min-h-0 bg-black z-[60] overflow-x-hidden">
+        <LazySection id="footer" className="snap-section h-auto md:h-screen min-h-0 bg-black z-[120] relative transform-gpu translate-z-0">
           <Footer lang={lang} />
         </LazySection>
       </div>
